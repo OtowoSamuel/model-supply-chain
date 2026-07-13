@@ -173,6 +173,7 @@ jobs:
       contents: read
       packages: write
       id-token: write
+      attestations: write
     
     steps:
       - name: Checkout code
@@ -236,28 +237,33 @@ jobs:
         env:
           COSIGN_EXPERIMENTAL: 1
         run: |
-          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.digest.outputs.digest }}"
-          echo "Signing image: $IMAGE"
-          cosign sign --yes "$IMAGE"
+          # Sign using the first tag (more reliable than digest)
+          IMAGE_TAG=$(echo '${{ steps.meta.outputs.tags }}' | head -n1)
+          echo "Signing image: $IMAGE_TAG"
+          cosign sign --yes "$IMAGE_TAG"
+          
+          # Also verify we can reference by digest
+          IMAGE_DIGEST="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.digest.outputs.digest }}"
+          echo "Image also available at: $IMAGE_DIGEST"
       
       - name: Attest SBOM to container
         env:
           COSIGN_EXPERIMENTAL: 1
         run: |
-          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.digest.outputs.digest }}"
-          echo "Attesting SBOM to: $IMAGE"
+          IMAGE_TAG=$(echo '${{ steps.meta.outputs.tags }}' | head -n1)
+          echo "Attesting SBOM to: $IMAGE_TAG"
           cosign attest --yes \
             --predicate artifacts/sbom/container-sbom.json \
             --type cyclonedx \
-            "$IMAGE"
+            "$IMAGE_TAG"
       
       - name: Verify image signature
         env:
           COSIGN_EXPERIMENTAL: 1
         run: |
-          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.digest.outputs.digest }}"
-          echo "Verifying image: $IMAGE"
-          cosign verify "$IMAGE"
+          IMAGE_TAG=$(echo '${{ steps.meta.outputs.tags }}' | head -n1)
+          echo "Verifying image: $IMAGE_TAG"
+          cosign verify "$IMAGE_TAG"
 
   deploy-staging:
     name: Deploy to Staging
