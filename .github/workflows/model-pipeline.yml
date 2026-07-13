@@ -150,6 +150,8 @@ jobs:
       
       - name: Setup OPA
         uses: open-policy-agent/setup-opa@v2
+        with:
+          version: latest
       
       - name: Evaluate deployment policy
         run: |
