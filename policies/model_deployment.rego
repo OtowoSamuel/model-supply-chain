@@ -61,29 +61,29 @@ has_critical_vulns if {
 }
 
 # Violation messages for debugging
-violations[msg] {
+violations contains msg if {
     not has_valid_signature
     msg := "Model artifact is not signed with cosign"
 }
 
-violations[msg] {
+violations contains msg if {
     not has_valid_sbom
     msg := "Model missing required SBOMs (code and model)"
 }
 
-violations[msg] {
+violations contains msg if {
     not has_slsa_provenance
     msg := "Model missing SLSA provenance attestation"
 }
 
-violations[msg] {
+violations contains msg if {
     not meets_quality_threshold
     threshold := 0.85
     accuracy := input.metadata.accuracy
     msg := sprintf("Model accuracy %.2f below threshold %.2f", [accuracy, threshold])
 }
 
-violations[msg] {
+violations contains msg if {
     has_critical_vulns
     msg := "Model dependencies contain critical vulnerabilities"
 }
@@ -97,7 +97,7 @@ trusted_builder if {
     }
 }
 
-violations[msg] {
+violations contains msg if {
     not trusted_builder
     builder := input.attestations[_].predicate.builder.id
     msg := sprintf("Untrusted builder: %s", [builder])
