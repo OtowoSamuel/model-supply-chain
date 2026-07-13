@@ -221,6 +221,13 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          outputs: type=image,name=target,annotation-index.org.opencontainers.image.description=Model supply chain server
+      
+      - name: Get image digest
+        id: digest
+        run: |
+          echo "digest=${{ steps.build.outputs.digest }}" >> $GITHUB_OUTPUT
+          echo "Image digest: ${{ steps.build.outputs.digest }}"
       
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3
@@ -229,24 +236,28 @@ jobs:
         env:
           COSIGN_EXPERIMENTAL: 1
         run: |
-          cosign sign --yes \
-            "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}"
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.digest.outputs.digest }}"
+          echo "Signing image: $IMAGE"
+          cosign sign --yes "$IMAGE"
       
       - name: Attest SBOM to container
         env:
           COSIGN_EXPERIMENTAL: 1
         run: |
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.digest.outputs.digest }}"
+          echo "Attesting SBOM to: $IMAGE"
           cosign attest --yes \
             --predicate artifacts/sbom/container-sbom.json \
             --type cyclonedx \
-            "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}"
+            "$IMAGE"
       
       - name: Verify image signature
         env:
           COSIGN_EXPERIMENTAL: 1
         run: |
-          cosign verify \
-            "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}"
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.digest.outputs.digest }}"
+          echo "Verifying image: $IMAGE"
+          cosign verify "$IMAGE"
 
   deploy-staging:
     name: Deploy to Staging
