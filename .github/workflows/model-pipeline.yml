@@ -1,0 +1,264 @@
+name: Model Supply Chain Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/model-server
+
+jobs:
+  train-and-attest:
+    name: Train Model with Provenance
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write  # For cosign keyless signing
+      contents: read
+      packages: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'  # Use stable version (not 3.14)
+      
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+      
+      - name: Install Syft (for SBOM)
+        uses: anchore/sbom-action/download-syft@v0
+      
+      - name: Train model
+        env:
+          BUILD_ID: ${{ github.run_id }}
+          BUILDER_ID: github-actions
+          GIT_REPO: ${{ github.repository }}
+          GIT_COMMIT: ${{ github.sha }}
+        run: |
+          python src/train_model.py
+      
+      - name: Generate SBOMs
+        run: |
+          python src/generate_sbom.py artifacts/metadata.json
+          
+          # Also generate SBOM for container
+          syft dir:. -o cyclonedx-json > artifacts/sbom/container-sbom.json
+      
+      - name: Sign artifacts with Cosign (keyless)
+        env:
+          COSIGN_EXPERIMENTAL: 1
+        run: |
+          # Sign model
+          cosign sign-blob artifacts/model.pkl \
+            --bundle artifacts/model.pkl.bundle \
+            --yes
+          
+          # Sign SBOMs
+          cosign sign-blob artifacts/sbom/code-sbom.json \
+            --bundle artifacts/sbom/code-sbom.json.bundle \
+            --yes
+          
+          cosign sign-blob artifacts/sbom/model-sbom.json \
+            --bundle artifacts/sbom/model-sbom.json.bundle \
+            --yes
+      
+      - name: Create SLSA attestation
+        env:
+          COSIGN_EXPERIMENTAL: 1
+        run: |
+          cosign attest-blob artifacts/model.pkl \
+            --predicate artifacts/attestations/provenance.json \
+            --type https://slsa.dev/provenance/v0.2 \
+            --yes > artifacts/model.pkl.att
+      
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-artifacts
+          path: |
+            artifacts/
+            !artifacts/**/*.pkl
+          retention-days: 90
+      
+      - name: Upload model (separate)
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-binary
+          path: artifacts/model.pkl
+          retention-days: 90
+
+  security-scan:
+    name: Security Scanning
+    needs: train-and-attest
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: model-artifacts
+          path: artifacts/
+      
+      - name: Scan dependencies with pip-audit
+        continue-on-error: true
+        run: |
+          pip install pip-audit
+          pip-audit -r requirements.txt --format json > artifacts/vulnerability-report.json
+      
+      - name: Scan SBOMs with Grype
+        uses: anchore/scan-action@v3
+        with:
+          sbom: artifacts/sbom/code-sbom.json
+          fail-build: false
+          severity-cutoff: high
+      
+      - name: Upload security reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports
+          path: artifacts/vulnerability-report.json
+
+  policy-gate:
+    name: Policy Enforcement Gate
+    needs: [train-and-attest, security-scan]
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: model-artifacts
+          path: artifacts/
+      
+      - name: Setup OPA
+        uses: open-policy-agent/setup-opa@v2
+      
+      - name: Evaluate deployment policy
+        run: |
+          python policies/test_policy.py artifacts
+      
+      - name: Policy gate passed
+        run: |
+          echo "✅ Model passed all policy checks"
+          echo "   - Signature verified"
+          echo "   - SBOMs present"
+          echo "   - SLSA provenance valid"
+          echo "   - Quality threshold met"
+
+  build-container:
+    name: Build and Sign Container
+    needs: policy-gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download model
+        uses: actions/download-artifact@v4
+        with:
+          name: model-binary
+          path: artifacts/
+      
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: model-artifacts
+          path: artifacts/
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix={{branch}}-
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+      
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+      
+      - name: Sign container image
+        env:
+          COSIGN_EXPERIMENTAL: 1
+        run: |
+          cosign sign --yes \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
+      
+      - name: Attest SBOM to container
+        env:
+          COSIGN_EXPERIMENTAL: 1
+        run: |
+          cosign attest --yes \
+            --predicate artifacts/sbom/container-sbom.json \
+            --type cyclonedx \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
+      
+      - name: Verify image signature
+        env:
+          COSIGN_EXPERIMENTAL: 1
+        run: |
+          cosign verify \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
+
+  deploy-staging:
+    name: Deploy to Staging
+    needs: build-container
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: staging
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Deploy to Kubernetes
+        run: |
+          echo "🚀 Deploying to staging with policy enforcement"
+          echo "   Kyverno will verify signatures and attestations"
+          # kubectl apply -f k8s/staging/

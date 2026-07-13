@@ -1,0 +1,19 @@
+{
+  "model_type": "RandomForestClassifier",
+  "framework": "scikit-learn",
+  "version": "1.0.0",
+  "trained_at": "2026-07-13T13:45:34.547411Z",
+  "accuracy": 1.0,
+  "parameters": {
+    "n_estimators": 100,
+    "max_depth": 5,
+    "random_state": 42,
+    "dataset": "iris",
+    "test_size": 0.2
+  },
+  "artifact": {
+    "name": "model.pkl",
+    "size_bytes": 165890,
+    "sha256": "b9ec661c9d3942dbcab670f1c9c407ee6c6ad75780da24bcdaf97fa77b82e79a"
+  }
+}

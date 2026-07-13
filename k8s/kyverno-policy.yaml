@@ -1,0 +1,121 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-model-supply-chain
+  annotations:
+    policies.kyverno.io/title: Verify Model Supply Chain Security
+    policies.kyverno.io/category: Supply Chain Security
+    policies.kyverno.io/severity: critical
+    policies.kyverno.io/description: >-
+      Enforces supply chain security for ML model deployments by verifying
+      cosign signatures and SLSA attestations on container images.
+spec:
+  validationFailureAction: Enforce
+  background: false
+  webhookTimeoutSeconds: 30
+  failurePolicy: Fail
+  rules:
+    - name: verify-image-signature
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+            namespaces:
+              - ml-production
+              - ml-staging
+      verifyImages:
+      - imageReferences:
+        - "ghcr.io/*/model-server*"
+        attestors:
+        - count: 1
+          entries:
+          - keyless:
+              subject: "https://github.com/*"
+              issuer: "https://token.actions.githubusercontent.com"
+              rekor:
+                url: https://rekor.sigstore.dev
+        attestations:
+        - predicateType: https://slsa.dev/provenance/v0.2
+          conditions:
+          - all:
+            - key: "{{ builder.id }}"
+              operator: In
+              value: ["github-actions", "gitlab-ci"]
+            - key: "{{ metadata.buildFinishedOn }}"
+              operator: NotEquals
+              value: ""
+        - predicateType: https://cyclonedx.org/bom
+          conditions:
+          - all:
+            - key: "{{ bomFormat }}"
+              operator: Equals
+              value: "CycloneDX"
+
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-model-attestations
+  annotations:
+    policies.kyverno.io/title: Require Model Attestations
+    policies.kyverno.io/category: ML Security
+    policies.kyverno.io/severity: high
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: check-model-labels
+      match:
+        any:
+        - resources:
+            kinds:
+              - Deployment
+            selector:
+              matchLabels:
+                app.kubernetes.io/component: ml-model
+      validate:
+        message: >-
+          ML model deployments must have required metadata labels including
+          model version, SBOM reference, and provenance attestation.
+        pattern:
+          metadata:
+            labels:
+              app.kubernetes.io/name: "?*"
+              app.kubernetes.io/version: "?*"
+              ml.model/sha256: "?*"
+              ml.model/sbom-ref: "?*"
+              ml.model/provenance-ref: "?*"
+
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: enforce-slsa-level
+  annotations:
+    policies.kyverno.io/title: Enforce Minimum SLSA Level
+    policies.kyverno.io/category: Supply Chain Security
+spec:
+  validationFailureAction: Audit  # Set to Enforce when ready
+  background: false
+  rules:
+    - name: require-slsa-provenance
+      match:
+        any:
+        - resources:
+            kinds:
+              - Deployment
+            namespaces:
+              - ml-production
+      validate:
+        message: >-
+          Production ML deployments require SLSA provenance attestation.
+          Ensure the container image has a valid SLSA provenance attestation
+          signed and stored in the transparency log.
+        manifests:
+          attestors:
+          - count: 1
+            entries:
+            - keyless:
+                rekor:
+                  url: https://rekor.sigstore.dev

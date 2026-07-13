@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+
+# Model artifacts
+models/
+*.h5
+*.pkl
+*.pt
+*.pth
+*.onnx
+*.pb
+
+# Secrets
+*.key
+*.pem
+cosign.key
+cosign.pub
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# SBOM and provenance (tracked separately)
+sbom/*.json
+provenance/*.json
+attestations/*.json
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Kubernetes
+secrets/

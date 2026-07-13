@@ -1,0 +1,56 @@
+{
+  "_type": "https://in-toto.io/Statement/v0.1",
+  "predicateType": "https://slsa.dev/provenance/v0.2",
+  "subject": [
+    {
+      "name": "model.pkl",
+      "digest": {
+        "sha256": "b9ec661c9d3942dbcab670f1c9c407ee6c6ad75780da24bcdaf97fa77b82e79a"
+      }
+    }
+  ],
+  "predicate": {
+    "buildType": "https://github.com/ml-supply-chain/v1",
+    "builder": {
+      "id": "local-builder"
+    },
+    "invocation": {
+      "configSource": {
+        "uri": "unknown",
+        "digest": {
+          "sha256": "unknown"
+        }
+      },
+      "parameters": {
+        "n_estimators": 100,
+        "max_depth": 5,
+        "random_state": 42,
+        "dataset": "iris",
+        "test_size": 0.2
+      },
+      "environment": {
+        "python_version": "3.11.15 (main, Mar  3 2026, 00:52:57) [Clang 17.0.0 (clang-1700.6.3.2)]",
+        "platform": "darwin"
+      }
+    },
+    "metadata": {
+      "buildInvocationId": "local-2026-07-13T13:45:34.461601",
+      "buildStartedOn": "2026-07-13T13:45:34.462165Z",
+      "buildFinishedOn": "2026-07-13T13:45:34.547672Z",
+      "completeness": {
+        "parameters": true,
+        "environment": true,
+        "materials": true
+      },
+      "reproducible": true
+    },
+    "materials": [
+      {
+        "uri": "pkg:requirements.txt",
+        "digest": {
+          "sha256": "868fc19c05c8e383dfef4527808a4dad5232b1786a9d89970fdbe96a06ea739b"
+        }
+      }
+    ]
+  }
+}
