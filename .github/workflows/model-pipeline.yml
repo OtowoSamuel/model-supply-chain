@@ -263,7 +263,9 @@ jobs:
         run: |
           IMAGE_TAG=$(echo '${{ steps.meta.outputs.tags }}' | head -n1)
           echo "Verifying image: $IMAGE_TAG"
-          cosign verify "$IMAGE_TAG"
+          cosign verify "$IMAGE_TAG" \
+            --certificate-identity-regexp='https://github.com/${{ github.repository_owner }}' \
+            --certificate-oidc-issuer=https://token.actions.githubusercontent.com
 
   deploy-staging:
     name: Deploy to Staging
