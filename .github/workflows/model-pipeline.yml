@@ -9,7 +9,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}/model-server
+  IMAGE_NAME: ${{ github.repository_owner }}/model-server
 
 jobs:
   train-and-attest:
@@ -230,7 +230,7 @@ jobs:
           COSIGN_EXPERIMENTAL: 1
         run: |
           cosign sign --yes \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
+            "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}"
       
       - name: Attest SBOM to container
         env:
@@ -239,14 +239,14 @@ jobs:
           cosign attest --yes \
             --predicate artifacts/sbom/container-sbom.json \
             --type cyclonedx \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
+            "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}"
       
       - name: Verify image signature
         env:
           COSIGN_EXPERIMENTAL: 1
         run: |
           cosign verify \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
+            "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}"
 
   deploy-staging:
     name: Deploy to Staging
