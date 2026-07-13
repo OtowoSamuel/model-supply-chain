@@ -27,11 +27,18 @@ def load_artifact_data(artifacts_dir: str = "artifacts") -> Dict[str, Any]:
     with open(f"{artifacts_dir}/attestations/provenance.json", 'r') as f:
         provenance = json.load(f)
     
-    # Check for signatures
+    # Check for signatures (Cosign v3+ uses .bundle files)
     signatures = []
-    model_sig_path = f"{artifacts_dir}/model.pkl.sig"
+    model_bundle_path = f"{artifacts_dir}/model.pkl.bundle"
+    model_sig_path = f"{artifacts_dir}/model.pkl.sig"  # Fallback for older format
     import os
-    if os.path.exists(model_sig_path):
+    if os.path.exists(model_bundle_path):
+        signatures.append({
+            "keyId": "cosign-key",
+            "signature": "signed",
+            "format": "bundle"
+        })
+    elif os.path.exists(model_sig_path):
         with open(model_sig_path, 'rb') as f:
             signatures.append({
                 "keyId": "cosign-key",
