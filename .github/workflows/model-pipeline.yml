@@ -22,10 +22,10 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
           python-version: '3.11'  # Use stable version (not 3.14)
       
@@ -35,10 +35,10 @@ jobs:
           pip install -r requirements.txt
       
       - name: Install Cosign
-        uses: sigstore/cosign-installer@v3
+        uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da # v3.7.0
       
       - name: Install Syft (for SBOM)
-        uses: anchore/sbom-action/download-syft@v0
+        uses: anchore/sbom-action/download-syft@42d4bae1c66c5a5eb03929f30cbb8a1d5aa09087 # v0.18.2
       
       - name: Train model
         env:
@@ -84,7 +84,7 @@ jobs:
             --yes > artifacts/model.pkl.att
       
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
         with:
           name: model-artifacts
           path: |
@@ -93,7 +93,7 @@ jobs:
           retention-days: 90
       
       - name: Upload model (separate)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
         with:
           name: model-binary
           path: artifacts/model.pkl
@@ -121,11 +121,16 @@ jobs:
           pip-audit -r requirements.txt --format json > artifacts/vulnerability-report.json
       
       - name: Scan SBOMs with Grype
-        uses: anchore/scan-action@v3
-        with:
-          sbom: artifacts/sbom/code-sbom.json
-          fail-build: false
-          severity-cutoff: high
+        continue-on-error: true
+        run: |
+          # Install Grype
+          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+          
+          # Update Grype database
+          grype db update
+          
+          # Scan Python dependencies directly (not SBOM)
+          grype dir:. --only-fixed --fail-on high
       
       - name: Upload security reports
         uses: actions/upload-artifact@v4
@@ -140,16 +145,16 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: model-artifacts
           path: artifacts/
       
       - name: Setup OPA
-        uses: open-policy-agent/setup-opa@v2
+        uses: open-policy-agent/setup-opa@34a30e8a924d1b03ce2cf7abe97250bbb1f332b5 # v2.2.0
         with:
           version: latest
       
@@ -177,25 +182,25 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       
       - name: Download model
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: model-binary
           path: artifacts/
       
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: model-artifacts
           path: artifacts/
       
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@b5ca514318e26f7ab63c281c1d6c7e9c54c4c87f # v3.9.0
       
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -203,7 +208,7 @@ jobs:
       
       - name: Extract metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@8e5442c4ef9f78752691e2d8f8d19755c6f78e81 # v5.5.1
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
@@ -214,7 +219,7 @@ jobs:
       
       - name: Build and push
         id: build
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@471d1c66eadb9bfec48f46a8dde5d4abc72c44a8 # v6.13.0
         with:
           context: .
           push: true
@@ -231,7 +236,7 @@ jobs:
           echo "Image digest: ${{ steps.build.outputs.digest }}"
       
       - name: Install Cosign
-        uses: sigstore/cosign-installer@v3
+        uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da # v3.7.0
       
       - name: Sign container image
         env:
@@ -276,10 +281,25 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      
+      # Uncomment and configure when you have a K8s cluster
+      # - name: Configure kubectl
+      #   uses: azure/k8s-set-context@v3
+      #   with:
+      #     method: kubeconfig
+      #     kubeconfig: ${{ secrets.KUBE_CONFIG }}
       
       - name: Deploy to Kubernetes
         run: |
-          echo "🚀 Deploying to staging with policy enforcement"
+          echo "🚀 Ready to deploy to staging with policy enforcement"
           echo "   Kyverno will verify signatures and attestations"
-          # kubectl apply -f k8s/staging/
+          echo ""
+          echo "To enable actual deployment:"
+          echo "1. Set up a Kubernetes cluster"
+          echo "2. Add KUBE_CONFIG secret to GitHub"
+          echo "3. Uncomment kubectl commands above"
+          echo "4. Run: kubectl apply -f k8s/deployment.yaml"
+          
+          # Uncomment when ready:
+          # kubectl apply -f k8s/deployment.yaml
