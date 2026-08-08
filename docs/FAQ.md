@@ -336,8 +336,8 @@ Each participant signs their contribution, final model aggregates attestations.
 
 ## Still Have Questions?
 
-- Check [ARCHITECTURE.md](../ARCHITECTURE.md) for design details
-- Read [SECURITY.md](../SECURITY.md) for threat model
+- Check [ARCHITECTURE.md](technical/ARCHITECTURE.md) for design details
+- Read [SECURITY.md](technical/SECURITY.md) for threat model
 - Open a GitHub issue
 - Join community discussions
 

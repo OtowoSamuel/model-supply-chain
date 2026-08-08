@@ -497,7 +497,7 @@ This gap won't stay unfilled for long. If you're deploying ML to production, now
 
 **Resources**:
 - Code: [GitHub](https://github.com/yourusername/model-supply-chain)
-- Docs: [ARCHITECTURE.md](../ARCHITECTURE.md), [SECURITY.md](../SECURITY.md)
+- Docs: [ARCHITECTURE.md](technical/ARCHITECTURE.md), [SECURITY.md](technical/SECURITY.md)
 - Standards: [SLSA](https://slsa.dev/), [Sigstore](https://sigstore.dev/)
 
 ---

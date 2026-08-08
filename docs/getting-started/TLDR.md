@@ -73,7 +73,7 @@ ls -la artifacts/
 - SLSA provenance (using v0.2, should be v1.0+)
 - Python version (3.14 has bugs, use 3.11)
 
-See [BEST_PRACTICES_REVIEW.md](BEST_PRACTICES_REVIEW.md) for details.
+See [BEST_PRACTICES_REVIEW.md](../technical/BEST_PRACTICES_REVIEW.md) for details.
 
 ## Quick Reference
 
@@ -111,16 +111,19 @@ See [BEST_PRACTICES_REVIEW.md](BEST_PRACTICES_REVIEW.md) for details.
 ## Next Steps
 
 ### Today (5 mins)
+
 1. Read [START_HERE.md](START_HERE.md)
 2. Run `./scripts/e2e-demo.sh`
 3. Look at generated files in `artifacts/`
 
 ### This Week
-1. Read [ARCHITECTURE.md](ARCHITECTURE.md)
+
+1. Read [ARCHITECTURE.md](../technical/ARCHITECTURE.md)
 2. Customize for your model
 3. Test locally
 
 ### This Month
+
 1. Set up CI/CD
 2. Deploy to staging
 3. Write blog post

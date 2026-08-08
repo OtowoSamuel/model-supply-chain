@@ -8,8 +8,8 @@ on:
   workflow_dispatch:
 
 env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/model-server
+  REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+  IMAGE_NAME: model-supply-chain-staging/model-server
 
 jobs:
   train-and-attest:
@@ -176,36 +176,55 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
       id-token: write
       attestations: write
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      
+
       - name: Download model
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: model-binary
           path: artifacts/
-      
+
       - name: Download artifacts
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: model-artifacts
           path: artifacts/
-      
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@b5ca514318e26f7ab63c281c1d6c7e9c54c4c87f # v3.9.0
-      
+
+      # AWS OIDC login - no passwords or access keys
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@8e5442c4ef9f78752691e2d8f8d19755c6f78e81 # v5.5.1
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix={{branch}}-
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}      
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      
+          password: ${{ secrets.GITHUB_TOKEN }}      
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@8e5442c4ef9f78752691e2d8f8d19755c6f78e81 # v5.5.1
@@ -273,33 +292,51 @@ jobs:
             --certificate-oidc-issuer=https://token.actions.githubusercontent.com
 
   deploy-staging:
-    name: Deploy to Staging
+    name: Deploy to Staging (EKS)
     needs: build-container
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     environment: staging
-    
+    permissions:
+      id-token: write
+      contents: read
+
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      
-      # Uncomment and configure when you have a K8s cluster
-      # - name: Configure kubectl
-      #   uses: azure/k8s-set-context@v3
-      #   with:
-      #     method: kubeconfig
-      #     kubeconfig: ${{ secrets.KUBE_CONFIG }}
-      
-      - name: Deploy to Kubernetes
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Configure kubectl for EKS
         run: |
-          echo "🚀 Ready to deploy to staging with policy enforcement"
-          echo "   Kyverno will verify signatures and attestations"
-          echo ""
-          echo "To enable actual deployment:"
-          echo "1. Set up a Kubernetes cluster"
-          echo "2. Add KUBE_CONFIG secret to GitHub"
-          echo "3. Uncomment kubectl commands above"
-          echo "4. Run: kubectl apply -f k8s/deployment.yaml"
-          
-          # Uncomment when ready:
-          # kubectl apply -f k8s/deployment.yaml
+          aws eks update-kubeconfig \
+            --region us-east-1 \
+            --name ${{ secrets.EKS_CLUSTER_NAME }}
+
+      - name: Update image in deployment
+        run: |
+          IMAGE_TAG=$(echo '${{ steps.meta.outputs.tags }}' | head -n1)
+          sed -i "s|image: .*model-server.*|image: $IMAGE_TAG|g" k8s/deployment.yaml
+
+      - name: Verify Kyverno policies (applied by Terraform)
+        run: |
+          # Policies are applied via Terraform (kyverno.tf + governance modules)
+          kubectl get imagevalidatingpolicies,validatingpolicies,mutatingpolicies -A \
+            | grep -E "verify-model-supply-chain|require-model-attestations|inject-audit-trail|enforce-slsa-level"
+
+      - name: Deploy to EKS
+        run: |
+          kubectl apply -f k8s/deployment.yaml
+          kubectl rollout status deployment/model-server \
+            -n ml-staging \
+            --timeout=120s
+
+      - name: Verify deployment
+        run: |
+          echo "✅ Deployed to EKS successfully"
+          kubectl get pods -n ml-staging
+          kubectl get svc  -n ml-staging

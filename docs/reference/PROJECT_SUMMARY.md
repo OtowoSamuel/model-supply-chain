@@ -178,18 +178,18 @@ cd model-supply-chain
 3. **Set up CI/CD**: Use `.github/workflows/model-pipeline.yml` as template
 4. **Deploy to K8s**: Apply `k8s/` manifests with Kyverno
 
-See [QUICKSTART.md](QUICKSTART.md) for details.
+See [QUICKSTART.md](../getting-started/QUICKSTART.md) for details.
 
 ## 📚 Documentation
 
-- **[README.md](README.md)**: Overview and quick start
-- **[ARCHITECTURE.md](ARCHITECTURE.md)**: Design, threat model, diagrams
-- **[SECURITY.md](SECURITY.md)**: Security policy and vulnerability reporting
-- **[QUICKSTART.md](QUICKSTART.md)**: 5-minute getting started guide
-- **[FAQ.md](docs/FAQ.md)**: Common questions and troubleshooting
-- **[COMPARISON.md](docs/COMPARISON.md)**: vs MLflow, SageMaker, etc.
-- **[BLOG_POST.md](docs/BLOG_POST.md)**: Comprehensive writeup for publication
-- **[CONTRIBUTING.md](CONTRIBUTING.md)**: How to contribute
+- **[README.md](../../README.md)**: Overview and quick start
+- **[ARCHITECTURE.md](../technical/ARCHITECTURE.md)**: Design, threat model, diagrams
+- **[SECURITY.md](../technical/SECURITY.md)**: Security policy and vulnerability reporting
+- **[QUICKSTART.md](../getting-started/QUICKSTART.md)**: 5-minute getting started guide
+- **[FAQ.md](../FAQ.md)**: Common questions and troubleshooting
+- **[COMPARISON.md](../COMPARISON.md)**: vs MLflow, SageMaker, etc.
+- **[BLOG_POST.md](../BLOG_POST.md)**: Comprehensive writeup for publication
+- **[CONTRIBUTING.md](../../CONTRIBUTING.md)**: How to contribute
 
 ## 🔧 Technical Stack
 

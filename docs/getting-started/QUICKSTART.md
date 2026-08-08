@@ -245,8 +245,8 @@ meets_quality_threshold if {
 
 ## Next Steps
 
-1. **Read the docs**: See [ARCHITECTURE.md](ARCHITECTURE.md) for design details
-2. **Review security**: Read [SECURITY.md](SECURITY.md) for threat model
+1. **Read the docs**: See [ARCHITECTURE.md](../technical/ARCHITECTURE.md) for design details
+2. **Review security**: Read [SECURITY.md](../technical/SECURITY.md) for threat model
 3. **Customize**: Adapt for your model type (TensorFlow, PyTorch, etc.)
 4. **Set up CI/CD**: Use `.github/workflows/model-pipeline.yml` as template
 
@@ -254,5 +254,5 @@ meets_quality_threshold if {
 
 For questions or issues, see:
 - GitHub Issues: [Report a bug]
-- Documentation: [ARCHITECTURE.md](ARCHITECTURE.md)
-- Security: [SECURITY.md](SECURITY.md)
+- Documentation: [ARCHITECTURE.md](../technical/ARCHITECTURE.md)
+- Security: [SECURITY.md](../technical/SECURITY.md)

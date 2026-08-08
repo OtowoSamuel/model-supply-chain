@@ -290,13 +290,13 @@ export COSIGN_PASSWORD="key-password"     # For key-based signing
 
 ## Documentation Quick Links
 
-- **Start here**: [START_HERE.md](START_HERE.md)
-- **Overview**: [README.md](README.md)
-- **Quick start**: [QUICKSTART.md](QUICKSTART.md)
-- **Architecture**: [ARCHITECTURE.md](ARCHITECTURE.md)
-- **Best practices**: [BEST_PRACTICES_REVIEW.md](BEST_PRACTICES_REVIEW.md)
-- **FAQ**: [docs/FAQ.md](docs/FAQ.md)
-- **Blog post**: [docs/BLOG_POST.md](docs/BLOG_POST.md)
+- **Start here**: [START_HERE.md](../getting-started/START_HERE.md)
+- **Overview**: [README.md](../README.md)
+- **Quick start**: [QUICKSTART.md](../getting-started/QUICKSTART.md)
+- **Architecture**: [ARCHITECTURE.md](../technical/ARCHITECTURE.md)
+- **Best practices**: [BEST_PRACTICES_REVIEW.md](../technical/BEST_PRACTICES_REVIEW.md)
+- **FAQ**: [FAQ.md](../FAQ.md)
+- **Blog post**: [BLOG_POST.md](../BLOG_POST.md)
 
 ## Keyboard Shortcuts (if using Make)
 
