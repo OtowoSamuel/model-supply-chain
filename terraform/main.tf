@@ -348,7 +348,12 @@ resource "aws_iam_role_policy" "github_actions" {
         Action = [
           "kms:GenerateDataKey",
           "kms:Decrypt",
-          "kms:Encrypt"
+          "kms:Encrypt",
+          "kms:PutKeyPolicy",
+          "kms:TagResource",
+          "kms:UntagResource",
+          "kms:CreateAlias",
+          "kms:DeleteAlias"
         ]
         Resource = [
           "arn:aws:kms:${var.aws_region}:${data.aws_caller_identity.current.account_id}:alias/aws/ecr",
