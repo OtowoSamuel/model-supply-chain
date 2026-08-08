@@ -178,8 +178,6 @@ jobs:
       contents: read
       id-token: write
       attestations: write
-    outputs:
-      image_tag: ${{ steps.tag.outputs.image_tag }}
 
     steps:
       - name: Checkout code
@@ -237,13 +235,6 @@ jobs:
         run: |
           echo "digest=${{ steps.build.outputs.digest }}" >> $GITHUB_OUTPUT
           echo "Image digest: ${{ steps.build.outputs.digest }}"
-
-      - name: Compute image tag for deploy
-        id: tag
-        run: |
-          IMAGE_TAG=$(echo '${{ steps.meta.outputs.tags }}' | head -n1)
-          echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
-          echo "Tag for deploy: $IMAGE_TAG"
       
       - name: Install Cosign
         uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da # v3.7.0
@@ -310,9 +301,9 @@ jobs:
 
       - name: Update image in deployment
         run: |
-          IMAGE_TAG="${{ needs.build-container.outputs.image_tag }}"
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main-${{ github.sha }}"
           if [ -z "$IMAGE_TAG" ]; then
-            echo "::error::Empty image tag from build-container job"
+            echo "::error::Empty image tag"
             exit 1
           fi
           sed -i "s|image: .*model-server.*|image: $IMAGE_TAG|g" k8s/deployment.yaml
