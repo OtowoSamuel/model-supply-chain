@@ -76,8 +76,6 @@ jobs:
             -var="aws_region=${{ env.AWS_REGION }}" \
             -no-color \
             -out=tfplan
-        working-directory: ${{ env.TF_WORKING_DIR }}
-        continue-on-error: true
 
       - name: Save plan
         uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0

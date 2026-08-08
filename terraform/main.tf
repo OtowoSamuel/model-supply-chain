@@ -315,6 +315,85 @@ resource "aws_iam_role_policy" "github_actions" {
           "dynamodb:DeleteItem"
         ]
         Resource = "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/tf-state-lock-model-supply-chain"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ec2:DescribeAvailabilityZones",
+          "ec2:DescribeVpcs",
+          "ec2:DescribeSubnets",
+          "ec2:DescribeSecurityGroups",
+          "ec2:DescribeInstances",
+          "ec2:DescribeRouteTables",
+          "ec2:DescribeNatGateways",
+          "ec2:DescribeInternetGateways",
+          "ec2:DescribeAddresses",
+          "ec2:DescribeNetworkInterfaces",
+          "ec2:DescribeLaunchTemplateVersions",
+          "ec2:DescribeLaunchTemplates",
+          "ec2:DescribeTags",
+          "iam:GetRole",
+          "iam:GetPolicy",
+          "iam:GetPolicyVersion",
+          "iam:GetInstanceProfile",
+          "iam:GetOpenIDConnectProvider",
+          "iam:ListRoles",
+          "iam:ListPolicies",
+          "iam:ListInstanceProfiles",
+          "iam:ListOpenIDConnectProviders",
+          "iam:PutRolePolicy",
+          "iam:DeleteRolePolicy",
+          "ecr:DescribeRepositories",
+          "ecr:GetLifecyclePolicy",
+          "ecr:GetRepositoryPolicy",
+          "ecr:ListImages",
+          "logs:DescribeLogGroups",
+          "autoscaling:DescribeAutoScalingGroups",
+          "autoscaling:DescribeAutoScalingInstances",
+          "autoscaling:DescribeLaunchConfigurations",
+          "elasticloadbalancing:DescribeLoadBalancers",
+          "elasticloadbalancing:DescribeTargetGroups",
+          "kms:DescribeKey",
+          "kms:ListKeys",
+          "sts:GetCallerIdentity"
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:GenerateDataKey",
+          "kms:Decrypt",
+          "kms:Encrypt"
+        ]
+        Resource = [
+          "arn:aws:kms:${var.aws_region}:${data.aws_caller_identity.current.account_id}:alias/aws/ecr",
+          "arn:aws:kms:${var.aws_region}:${data.aws_caller_identity.current.account_id}:key/*"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "eks:ListClusters",
+          "eks:ListNodeGroups",
+          "eks:DescribeNodegroup",
+          "eks:CreateNodegroup",
+          "eks:UpdateNodegroupConfig",
+          "eks:UpdateNodegroupVersion",
+          "eks:DeleteNodegroup",
+          "eks:ListAccessEntries",
+          "eks:DescribeAccessEntry",
+          "eks:CreateAccessEntry",
+          "eks:DeleteAccessEntry",
+          "eks:UpdateAccessEntry",
+          "eks:AssociateAccessPolicy",
+          "eks:DisassociateAccessPolicy",
+          "eks:ListAssociatedAccessPolicies",
+          "eks:ListAccessPolicies",
+          "eks:TagResource",
+          "eks:UntagResource"
+        ]
+        Resource = "*"
       }
     ]
   })
