@@ -3,6 +3,9 @@ FROM python:3.11-slim
 LABEL org.opencontainers.image.source="https://github.com/yourusername/model-supply-chain"
 LABEL org.opencontainers.image.description="Secure ML model server with supply chain verification"
 
+ARG BUILD_ID=unknown
+LABEL org.opencontainers.image.revision="${BUILD_ID}"
+
 WORKDIR /app
 
 # Install security tools

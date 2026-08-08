@@ -225,6 +225,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            BUILD_ID=${{ github.run_id }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false
@@ -252,25 +254,16 @@ jobs:
           IMAGE_DIGEST="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.digest.outputs.digest }}"
           echo "Image also available at: $IMAGE_DIGEST"
       
-      - name: Attest SBOM to container
+      - name: Attest SBOM and SLSA to container
         env:
           COSIGN_EXPERIMENTAL: 1
         run: |
           IMAGE_TAG=$(echo '${{ steps.meta.outputs.tags }}' | head -n1)
-          echo "Attesting SBOM to: $IMAGE_TAG"
+          python3 -c "import json; d=json.load(open('artifacts/attestations/provenance.json')); open('artifacts/attestations/slsa-predicate.json','w').write(json.dumps(d['predicate']))"
+          echo "Attesting SBOM + SLSA to: $IMAGE_TAG"
           cosign attest --yes \
             --predicate artifacts/sbom/container-sbom.json \
             --type cyclonedx \
-            "$IMAGE_TAG"
-
-      - name: Attest SLSA provenance to container
-        env:
-          COSIGN_EXPERIMENTAL: 1
-        run: |
-          IMAGE_TAG=$(echo '${{ steps.meta.outputs.tags }}' | head -n1)
-          echo "Attesting SLSA provenance to: $IMAGE_TAG"
-          python3 -c "import json; d=json.load(open('artifacts/attestations/provenance.json')); open('artifacts/attestations/slsa-predicate.json','w').write(json.dumps(d['predicate']))"
-          cosign attest --yes \
             --predicate artifacts/attestations/slsa-predicate.json \
             --type https://slsa.dev/provenance/v0.2 \
             "$IMAGE_TAG"
