@@ -218,8 +218,6 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=sha,prefix={{branch}}-
-            type=ref,event=branch
-            type=ref,event=pr
             type=semver,pattern={{version}}      
       - name: Build and push
         id: build
