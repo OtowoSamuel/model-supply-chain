@@ -109,6 +109,17 @@ module "eks" {
         }
       }
     }
+    github_actions = {
+      principal_arn = aws_iam_role.github_actions.arn
+      policy_associations = {
+        admin = {
+          policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+          access_scope = {
+            type = "cluster"
+          }
+        }
+      }
+    }
   }
 
   # Cluster logging
@@ -282,6 +293,28 @@ resource "aws_iam_role_policy" "github_actions" {
           "eks:ListClusters"
         ]
         Resource = module.eks.cluster_arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:ListBucket",
+          "s3:GetBucketLocation"
+        ]
+        Resource = [
+          "arn:aws:s3:::tf-state-model-supply-chain-050083686295",
+          "arn:aws:s3:::tf-state-model-supply-chain-050083686295/*"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:DeleteItem"
+        ]
+        Resource = "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/tf-state-lock-model-supply-chain"
       }
     ]
   })

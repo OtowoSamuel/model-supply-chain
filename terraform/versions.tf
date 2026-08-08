@@ -22,10 +22,10 @@ terraform {
 
   # S3 backend for state - created by terraform/bootstrap/
   backend "s3" {
-    bucket       = "tf-state-model-supply-chain-050083686295"
-    key          = "eks/terraform.tfstate"
-    region       = "us-east-1"
-    encrypt      = true
-    use_lockfile = true
+    bucket         = "tf-state-model-supply-chain-050083686295"
+    key            = "eks/terraform.tfstate"
+    region         = "us-east-1"
+    encrypt        = true
+    dynamodb_table = "tf-state-lock-model-supply-chain"
   }
 }

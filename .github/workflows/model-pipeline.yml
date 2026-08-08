@@ -106,10 +106,10 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00f005971372dc801d16 # v4.1.8
         with:
           name: model-artifacts
           path: artifacts/
@@ -133,7 +133,7 @@ jobs:
           grype dir:. --only-fixed --fail-on high
       
       - name: Upload security reports
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b4b7802705f340c2b # v4.5.0
         with:
           name: security-reports
           path: artifacts/vulnerability-report.json
@@ -178,6 +178,8 @@ jobs:
       contents: read
       id-token: write
       attestations: write
+    outputs:
+      image_tag: ${{ steps.tag.outputs.image_tag }}
 
     steps:
       - name: Checkout code
@@ -219,23 +221,6 @@ jobs:
             type=ref,event=branch
             type=ref,event=pr
             type=semver,pattern={{version}}      
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}      
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@8e5442c4ef9f78752691e2d8f8d19755c6f78e81 # v5.5.1
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=sha,prefix={{branch}}-
-            type=ref,event=branch
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-      
       - name: Build and push
         id: build
         uses: docker/build-push-action@471d1c66eadb9bfec48f46a8dde5d4abc72c44a8 # v6.13.0
@@ -246,13 +231,19 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          outputs: type=image,name=target,annotation-index.org.opencontainers.image.description=Model supply chain server
       
       - name: Get image digest
         id: digest
         run: |
           echo "digest=${{ steps.build.outputs.digest }}" >> $GITHUB_OUTPUT
           echo "Image digest: ${{ steps.build.outputs.digest }}"
+
+      - name: Compute image tag for deploy
+        id: tag
+        run: |
+          IMAGE_TAG=$(echo '${{ steps.meta.outputs.tags }}' | head -n1)
+          echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+          echo "Tag for deploy: $IMAGE_TAG"
       
       - name: Install Cosign
         uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da # v3.7.0
@@ -319,8 +310,13 @@ jobs:
 
       - name: Update image in deployment
         run: |
-          IMAGE_TAG=$(echo '${{ steps.meta.outputs.tags }}' | head -n1)
+          IMAGE_TAG="${{ needs.build-container.outputs.image_tag }}"
+          if [ -z "$IMAGE_TAG" ]; then
+            echo "::error::Empty image tag from build-container job"
+            exit 1
+          fi
           sed -i "s|image: .*model-server.*|image: $IMAGE_TAG|g" k8s/deployment.yaml
+          grep "image:" k8s/deployment.yaml
 
       - name: Verify Kyverno policies (applied by Terraform)
         run: |
