@@ -35,6 +35,9 @@ resource "kubectl_manifest" "verify_model_images" {
     spec = {
       failurePolicy     = "Fail"
       validationActions = ["Deny"]
+      credentials = {
+        secrets = ["kyverno-ecr-registry"]
+      }
       webhookConfiguration = {
         timeoutSeconds = 15
       }
@@ -74,8 +77,8 @@ resource "kubectl_manifest" "verify_model_images" {
             keyless = {
               identities = [
                 {
-                  subject = "https://github.com/*"
-                  issuer  = "https://token.actions.githubusercontent.com"
+                  issuer         = "https://token.actions.githubusercontent.com"
+                  subjectRegExp  = "^https://github\\.com/.*$"
                 }
               ]
             }

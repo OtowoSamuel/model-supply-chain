@@ -264,6 +264,8 @@ jobs:
           cosign attest --yes \
             --predicate artifacts/sbom/container-sbom.json \
             --type cyclonedx \
+            "$IMAGE_TAG"
+          cosign attest --yes \
             --predicate artifacts/attestations/slsa-predicate.json \
             --type https://slsa.dev/provenance/v0.2 \
             "$IMAGE_TAG"
