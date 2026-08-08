@@ -389,6 +389,70 @@ resource "aws_iam_role_policy" "github_actions" {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
+# IAM Role for Kyverno (IRSA) - ECR read for image verification
+# Kyverno's admission controller verifies cosign signatures on ECR images,
+# so it needs registry + KMS access via its pod identity.
+# ─────────────────────────────────────────────────────────────────────────────
+resource "aws_iam_role" "kyverno_ecr" {
+  name = "${local.name}-kyverno-ecr"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Federated = module.eks.oidc_provider_arn
+        }
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringLike = {
+            "${module.eks.oidc_provider}:sub" = "system:serviceaccount:kyverno:*"
+          }
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "kyverno_ecr" {
+  name = "${local.name}-kyverno-ecr-policy"
+  role = aws_iam_role.kyverno_ecr.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["ecr:GetAuthorizationToken"]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:BatchGetImage",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:DescribeImages"
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+          "kms:GenerateDataKey"
+        ]
+        Resource = [
+          "arn:aws:kms:${var.aws_region}:${data.aws_caller_identity.current.account_id}:alias/aws/ecr",
+          "arn:aws:kms:${var.aws_region}:${data.aws_caller_identity.current.account_id}:key/*"
+        ]
+      }
+    ]
+  })
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Kubernetes Namespaces
 # ─────────────────────────────────────────────────────────────────────────────
 resource "kubernetes_namespace" "kyverno" {

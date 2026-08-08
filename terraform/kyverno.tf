@@ -18,7 +18,7 @@ provider "helm" {
 }
 
 resource "helm_release" "kyverno" {
-  name       = "kyverno"
+  name = "kyverno"
   # Vendored chart (kyverno-3.8.2.tgz, sha256 f4fc787c...) pinned to Kyverno
   # v1.18.2. Local archive avoids flaky chart-server downloads during apply.
   chart            = "charts/kyverno-3.8.2.tgz"
@@ -32,9 +32,21 @@ resource "helm_release" "kyverno" {
     yamlencode({
       admissionController = {
         replicas = 2
+        serviceAccount = {
+          name = "kyverno-admission-controller"
+          annotations = {
+            "eks.amazonaws.com/role-arn" = aws_iam_role.kyverno_ecr.arn
+          }
+        }
       }
       backgroundController = {
         replicas = 1
+        serviceAccount = {
+          name = "kyverno-background-controller"
+          annotations = {
+            "eks.amazonaws.com/role-arn" = aws_iam_role.kyverno_ecr.arn
+          }
+        }
       }
       cleanupController = {
         replicas = 1
@@ -55,4 +67,40 @@ resource "helm_release" "kyverno" {
     module.eks,
     kubernetes_namespace.kyverno
   ]
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# IRSA annotations for Kyverno ServiceAccounts.
+# Helm won't patch SAs created by earlier chart revisions, so these resources
+# re-apply the annotation idempotently. Pods must be restarted once after the
+# first annotation so the projected EKS token is mounted.
+# ─────────────────────────────────────────────────────────────────────────────
+resource "kubernetes_annotations" "kyverno_admission_sa" {
+  api_version = "v1"
+  kind        = "ServiceAccount"
+
+  metadata {
+    name      = "kyverno-admission-controller"
+    namespace = kubernetes_namespace.kyverno.metadata[0].name
+  }
+  annotations = {
+    "eks.amazonaws.com/role-arn" = aws_iam_role.kyverno_ecr.arn
+  }
+
+  force = true
+}
+
+resource "kubernetes_annotations" "kyverno_background_sa" {
+  api_version = "v1"
+  kind        = "ServiceAccount"
+
+  metadata {
+    name      = "kyverno-background-controller"
+    namespace = kubernetes_namespace.kyverno.metadata[0].name
+  }
+  annotations = {
+    "eks.amazonaws.com/role-arn" = aws_iam_role.kyverno_ecr.arn
+  }
+
+  force = true
 }

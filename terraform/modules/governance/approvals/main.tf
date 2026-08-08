@@ -121,7 +121,7 @@ resource "kubectl_manifest" "verify_model_images" {
           message    = "SLSA provenance must include a buildFinishedOn timestamp"
         },
         {
-          expression = "images.containers.map(image, extractPayload(image, attestations.sbom).bomFormat == 'CycloneDX').all(e, e)"
+          expression = "images.containers.map(image, extractPayload(image, attestations.sbom).predicate.bomFormat == 'CycloneDX').all(e, e)"
           message    = "SBOM attestation must be in CycloneDX format"
         }
       ]
