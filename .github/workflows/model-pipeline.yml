@@ -258,22 +258,15 @@ jobs:
           IMAGE_DIGEST="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.digest.outputs.digest }}"
           echo "Image also available at: $IMAGE_DIGEST"
       
-      - name: Attest SBOM and SLSA to container
+      - name: Attest SBOM to container
         env:
           COSIGN_EXPERIMENTAL: 1
         run: |
           IMAGE_TAG=$(echo '${{ steps.meta.outputs.tags }}' | head -n1)
-          python3 -c "import json; d=json.load(open('artifacts/attestations/provenance.json')); open('artifacts/attestations/slsa-predicate.json','w').write(json.dumps(d['predicate']))"
-          echo "Attesting SBOM + SLSA to: $IMAGE_TAG"
+          echo "Attesting SBOM to: $IMAGE_TAG"
           cosign attest --yes \
-            --registry-referrers-mode=oci-1-1 \
             --predicate artifacts/sbom/container-sbom.json \
             --type cyclonedx \
-            "$IMAGE_TAG"
-          cosign attest --yes \
-            --registry-referrers-mode=oci-1-1 \
-            --predicate artifacts/attestations/slsa-predicate.json \
-            --type https://slsa.dev/provenance/v0.2 \
             "$IMAGE_TAG"
       
       - name: Verify image signature

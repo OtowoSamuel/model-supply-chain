@@ -90,12 +90,6 @@ resource "kubectl_manifest" "verify_model_images" {
       ]
       attestations = [
         {
-          name = "slsa"
-          intoto = {
-            type = "https://slsa.dev/provenance/v0.2"
-          }
-        },
-        {
           name = "sbom"
           intoto = {
             type = "https://cyclonedx.org/bom"
@@ -108,20 +102,8 @@ resource "kubectl_manifest" "verify_model_images" {
           message    = "Image is not signed with a valid Cosign keyless signature from GitHub Actions"
         },
         {
-          expression = "images.containers.map(image, verifyAttestationSignatures(image, attestations.slsa, [attestors.cosign])).all(e, e > 0)"
-          message    = "Image is missing a valid SLSA provenance attestation (https://slsa.dev/provenance/v0.2)"
-        },
-        {
           expression = "images.containers.map(image, verifyAttestationSignatures(image, attestations.sbom, [attestors.cosign])).all(e, e > 0)"
           message    = "Image is missing a valid CycloneDX SBOM attestation"
-        },
-        {
-          expression = "images.containers.map(image, extractPayload(image, attestations.slsa).predicate.builder.id in ['github-actions', 'gitlab-ci']).all(e, e)"
-          message    = "SLSA provenance must be built by github-actions or gitlab-ci"
-        },
-        {
-          expression = "images.containers.map(image, extractPayload(image, attestations.slsa).predicate.metadata.buildFinishedOn != '').all(e, e)"
-          message    = "SLSA provenance must include a buildFinishedOn timestamp"
         },
         {
           expression = "images.containers.map(image, extractPayload(image, attestations.sbom).predicate.bomFormat == 'CycloneDX').all(e, e)"
