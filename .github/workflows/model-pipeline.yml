@@ -215,7 +215,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=sha,prefix={{branch}}-
+            type=raw,value=main-${{ github.sha }}-${{ github.run_id }}
             type=semver,pattern={{version}}      
       - name: Build and push
         id: build
@@ -306,7 +306,7 @@ jobs:
 
       - name: Update image in deployment
         run: |
-          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main-${{ github.sha }}"
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main-${{ github.sha }}-${{ github.run_id }}"
           if [ -z "$IMAGE_TAG" ]; then
             echo "::error::Empty image tag"
             exit 1
