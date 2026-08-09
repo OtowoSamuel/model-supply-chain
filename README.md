@@ -36,7 +36,7 @@ push → Train → SBOMs → Sign → OPA Gate → Build Container
    → Serve (Verified)   [ECR credentials: external-secrets generator, 12h tokens]
 ```
 
-See [ARCHITECTURE.md](docs/technical/ARCHITECTURE.md) for detailed design and threat model.
+See the [GitOps](#gitops-argo-cd) and [CI/CD Pipeline](#-cicd-pipeline) sections below for the detailed flow.
 
 ### GitOps (Argo CD)
 
@@ -45,8 +45,8 @@ commits the updated manifest (`k8s/deployment.yaml`, bot commit `deploy: ...`)
 and Argo CD syncs the `ml-staging` Application (auto-sync + selfHeal + prune,
 polling-based; the CI kicks a hard refresh and waits). Verified end-to-end:
 
-- Commit `128fbb7` → Application **Synced / Healthy** → deployment on
-  `main-36cdb87…-31336622256` → Kyverno verdict **pass**.
+- Commit `343f20b` (run `31337640668`) → Application **Synced / Healthy** → deployment on
+  `main-d8853c76…-31337640668` → Kyverno verdict **pass**.
 - Bot commits don't re-trigger the pipeline: jobs are guarded with
   `github.event_name != 'push' || !startsWith(head_commit.message, 'deploy:')`
   (GITHUB_TOKEN pushes don't fire workflows anyway — the guard is a belt).
@@ -293,22 +293,11 @@ This project addresses a **real industry gap**:
 ## 📚 Documentation
 
 **Getting Started:**
-- [START_HERE.md](docs/getting-started/START_HERE.md) - Complete beginner guide
-- [TLDR.md](docs/getting-started/TLDR.md) - 2-minute overview
-- [QUICKSTART.md](docs/getting-started/QUICKSTART.md) - 5-minute guide
 - [QUICK_START.md](QUICK_START.md) - Repository quick start
-- [CHANGELOG_KYVERNO_MIGRATION.md](CHANGELOG_KYVERNO_MIGRATION.md) - 1.18/CRD migration notes
 
-**Technical Details:**
-- [ARCHITECTURE.md](docs/technical/ARCHITECTURE.md) - Design and threat model
-- [SECURITY.md](docs/technical/SECURITY.md) - Security policy
-- [BEST_PRACTICES_REVIEW.md](docs/technical/BEST_PRACTICES_REVIEW.md) - Standards compliance
-
-**Reference:**
-- [CHEATSHEET.md](docs/reference/CHEATSHEET.md) - All commands
-- [PROJECT_SUMMARY.md](docs/reference/PROJECT_SUMMARY.md) - Project overview
-- [BLOG_POST.md](docs/BLOG_POST.md) - Publication-ready writeup
-- [FAQ.md](docs/FAQ.md) - Common questions
+**Operations:**
+- [OPERATIONS_RUNBOOK.md](docs/OPERATIONS_RUNBOOK.md) - Daily operational tasks
+- [PRODUCTION_READINESS_CHECKLIST.md](docs/PRODUCTION_READINESS_CHECKLIST.md) - Checklist before going to production
 
 **External Resources:**
 - [SLSA](https://slsa.dev/) - Supply-chain Levels for Software Artifacts
