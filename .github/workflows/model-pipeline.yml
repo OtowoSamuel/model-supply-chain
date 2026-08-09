@@ -3,6 +3,11 @@ name: Model Supply Chain Pipeline
 on:
   push:
     branches: [ main, develop ]
+    # doc-only changes don't need the full build/deploy run
+    paths-ignore:
+      - '*.md'
+      - 'docs/**'
+      - 'k8s/SCREENSHOTS_GUIDE.md'
   pull_request:
     branches: [ main ]
   workflow_dispatch:
