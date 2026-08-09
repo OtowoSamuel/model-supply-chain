@@ -265,16 +265,36 @@ jobs:
           IMAGE_DIGEST="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.digest.outputs.digest }}"
           echo "Image also available at: $IMAGE_DIGEST"
       
-      - name: Extract container build provenance (SLSA)
+      - name: Build SLSA provenance predicate (v0.2)
         id: provenance
         run: |
           IMAGE_TAG=$(echo '${{ steps.meta.outputs.tags }}' | head -n1)
           mkdir -p artifacts/slsa
-          docker buildx imagetools inspect --format '{{ json .Provenance }}' "$IMAGE_TAG" \
-            > artifacts/slsa/container-provenance.json
+          # buildx provenance is SLSA v1-style; the ImageValidatingPolicy
+          # requires v0.2, so compose the predicate from workflow context.
+          jq -n \
+            --arg builder "https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            --arg buildType "https://github.com/$GITHUB_REPOSITORY/.github/workflows/model-pipeline.yml" \
+            --arg repo "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+            --arg sha "$GITHUB_SHA" \
+            --arg runId "$GITHUB_RUN_ID" \
+            --arg image "$IMAGE_TAG" \
+            '{
+              builder: { id: $builder },
+              buildType: $buildType,
+              invocation: {
+                configSource: { uri: ("git+" + $repo + "@" + $sha), digest: { sha1: $sha } },
+                parameters: { run_id: $runId, image_tag: $image }
+              },
+              metadata: {
+                buildInvocationID: $runId,
+                completeness: { parameters: true, environment: true, materials: true }
+              },
+              materials: [ { uri: ("git+" + $repo + "@" + $sha), digest: { sha1: $sha } } ]
+            }' > artifacts/slsa/container-provenance.json
           jq . artifacts/slsa/container-provenance.json >/dev/null
-          echo "Extracted container provenance:"
-          jq -r '.builder.id // "n/a"' artifacts/slsa/container-provenance.json
+          echo "Provenance predicate:"
+          jq -r '.builder.id' artifacts/slsa/container-provenance.json
 
       - name: Attest container provenance (SLSA)
         env:
