@@ -52,7 +52,7 @@ spec:
       
       containers:
       - name: model-server
-        image: 050083686295.dkr.ecr.us-east-1.amazonaws.com/model-supply-chain-staging/model-server:main-36cdb87c078170f70f7aa98c71e3da76f68c2a93-31336622256
+        image: 050083686295.dkr.ecr.us-east-1.amazonaws.com/model-supply-chain-staging/model-server:main-d8853c76bc38d747f4f685a9e627a8bf9ba606ac-31337640668
         imagePullPolicy: Always
         
         securityContext:
