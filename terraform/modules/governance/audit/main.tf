@@ -46,25 +46,12 @@ resource "kubectl_manifest" "inject_audit_metadata" {
           patchType = "ApplyConfiguration"
           applyConfiguration = {
             expression = <<-EOT
-              has(object.metadata.annotations) ?
-              Object{
-                metadata: Object.metadata{
-                  annotations: Object.metadata.annotations{
-                    "audit.ml-supply-chain/deployed-at": string(time.now()),
-                    "audit.ml-supply-chain/deployed-by-user": request.userInfo.username,
-                    "audit.ml-supply-chain/deployed-by-uid": request.userInfo.uid,
-                    "audit.ml-supply-chain/admission-request-id": request.uid,
-                    "audit.ml-supply-chain/operation": request.operation
-                  }
-                }
-              } :
               Object{
                 metadata: Object.metadata{
                   annotations: {
                     "audit.ml-supply-chain/deployed-at": string(time.now()),
                     "audit.ml-supply-chain/deployed-by-user": request.userInfo.username,
                     "audit.ml-supply-chain/deployed-by-uid": request.userInfo.uid,
-                    "audit.ml-supply-chain/admission-request-id": request.uid,
                     "audit.ml-supply-chain/operation": request.operation
                   }
                 }

@@ -407,7 +407,10 @@ resource "aws_iam_role" "kyverno_ecr" {
         Action = "sts:AssumeRoleWithWebIdentity"
         Condition = {
           StringLike = {
-            "${module.eks.oidc_provider}:sub" = "system:serviceaccount:kyverno:*"
+            "${module.eks.oidc_provider}:sub" = [
+              "system:serviceaccount:kyverno:*",
+              "system:serviceaccount:external-secrets:*"
+            ]
           }
         }
       }

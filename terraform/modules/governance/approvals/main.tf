@@ -94,6 +94,12 @@ resource "kubectl_manifest" "verify_model_images" {
           intoto = {
             type = "https://cyclonedx.org/bom"
           }
+        },
+        {
+          name = "slsa"
+          intoto = {
+            type = "https://slsa.dev/provenance/v0.2"
+          }
         }
       ]
       validations = [
@@ -108,6 +114,18 @@ resource "kubectl_manifest" "verify_model_images" {
         {
           expression = "images.containers.map(image, extractPayload(image, attestations.sbom).predicate.bomFormat == 'CycloneDX').all(e, e)"
           message    = "SBOM attestation must be in CycloneDX format"
+        },
+        {
+          expression = "images.containers.map(image, verifyAttestationSignatures(image, attestations.slsa, [attestors.cosign])).all(e, e > 0)"
+          message    = "Image is missing a valid SLSA provenance attestation"
+        },
+        {
+          expression = "images.containers.map(image, extractPayload(image, attestations.slsa).predicateType == 'https://slsa.dev/provenance/v0.2').all(e, e)"
+          message    = "SLSA attestation must use provenance v0.2"
+        },
+        {
+          expression = "images.containers.map(image, extractPayload(image, attestations.slsa).predicate.?builder.?id.orValue('').size() > 0).all(e, e)"
+          message    = "SLSA attestation must identify the builder"
         }
       ]
     }

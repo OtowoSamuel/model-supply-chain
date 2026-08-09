@@ -56,11 +56,17 @@ resource "helm_release" "kyverno" {
       }
       # Kyverno v1.18 resolves registry credentials from the --imagePullSecrets
       # flag (pull secrets) only; IRSA is not consulted for image verification.
-      # Secret kyverno-ecr-registry is created + refreshed by the rotation
-      # CronJob below (ECR auth tokens expire every 12h).
+      # Secret kyverno-ecr-registry is created + refreshed by the external-secrets
+      # ECR generator (ECR auth tokens expire every 12h).
       existingImagePullSecrets = ["kyverno-ecr-registry"]
-      # Disable deprecated ClusterPolicy support
+      # Disable deprecated ClusterPolicy support + log verbosity via Helm
+      # (previously set by an out-of-band kubectl patch, --v=6, which got lost
+      # on every helm upgrade).
       features = {
+        logging = {
+          # Logging verbosity (--v)
+          verbosity = 6
+        }
         policyExceptions = {
           enabled = true
         }
@@ -114,116 +120,133 @@ resource "kubernetes_annotations" "kyverno_background_sa" {
 # ECR registry credentials for Kyverno image verification.
 # Kyverno v1.18 fetches registry credentials from the --imagePullSecrets flag,
 # i.e. a kubernetes.io/dockerconfigjson Secret in the kyverno namespace. ECR
-# authorization tokens expire after 12h. The Secret is created and refreshed
-# ONLY by the rotation CronJob below (hourly, using the same IRSA role); it is
-# intentionally NOT managed by terraform so applies can never clobber the live
-# token with a stale placeholder.
+# authorization tokens expire after 12h, so the Secret is refreshed by
+# external-secrets (ECR generator) below instead of a hand-rolled CronJob.
+# The Secret itself is owned by the ExternalSecret resource (not managed
+# directly by terraform) so applies never clobber the live token.
 # ─────────────────────────────────────────────────────────────────────────────
 
-resource "kubernetes_service_account_v1" "kyverno_ecr_rotation" {
-  metadata {
-    name      = "kyverno-ecr-rotation"
-    namespace = kubernetes_namespace.kyverno.metadata[0].name
-    annotations = {
-      "eks.amazonaws.com/role-arn" = aws_iam_role.kyverno_ecr.arn
-    }
-  }
-}
+resource "helm_release" "external_secrets" {
+  name = "external-secrets"
+  # Vendored chart (external-secrets-2.9.0.tgz) pinned like Kyverno to avoid
+  # flaky chart-server downloads during apply.
+  chart            = "charts/external-secrets-2.9.0.tgz"
+  version          = "2.9.0"
+  namespace        = "external-secrets"
+  create_namespace = true
+  wait             = true
+  timeout          = 300
 
-resource "kubernetes_role_v1" "kyverno_ecr_rotation" {
-  metadata {
-    name      = "kyverno-ecr-rotation"
-    namespace = kubernetes_namespace.kyverno.metadata[0].name
-  }
-
-  rule {
-    api_groups = [""]
-    resources  = ["secrets"]
-    verbs      = ["get", "list", "watch", "create", "patch", "update"]
-  }
-}
-
-resource "kubernetes_role_binding_v1" "kyverno_ecr_rotation" {
-  metadata {
-    name      = "kyverno-ecr-rotation"
-    namespace = kubernetes_namespace.kyverno.metadata[0].name
-  }
-  subject {
-    kind      = "ServiceAccount"
-    name      = kubernetes_service_account_v1.kyverno_ecr_rotation.metadata[0].name
-    namespace = kubernetes_namespace.kyverno.metadata[0].name
-  }
-  role_ref {
-    api_group = "rbac.authorization.k8s.io"
-    kind      = "Role"
-    name      = kubernetes_role_v1.kyverno_ecr_rotation.metadata[0].name
-  }
-}
-
-resource "kubernetes_cron_job_v1" "kyverno_ecr_rotation" {
-  metadata {
-    name      = "kyverno-ecr-rotation"
-    namespace = kubernetes_namespace.kyverno.metadata[0].name
-  }
-
-  spec {
-    schedule                      = "0 * * * *"
-    concurrency_policy            = "Forbid"
-    starting_deadline_seconds     = 300
-    successful_jobs_history_limit = 1
-    failed_jobs_history_limit     = 2
-    job_template {
-      metadata {
-        name      = "kyverno-ecr-rotation"
-        namespace = kubernetes_namespace.kyverno.metadata[0].name
+  values = [
+    yamlencode({
+      serviceAccount = {
+        name = "external-secrets"
+        annotations = {
+          "eks.amazonaws.com/role-arn" = aws_iam_role.kyverno_ecr.arn
+        }
       }
-      spec {
-        backoff_limit = 2
-        template {
-          metadata {
-            labels = {
-              app = "kyverno-ecr-rotation"
-            }
-          }
-          spec {
-            service_account_name            = kubernetes_service_account_v1.kyverno_ecr_rotation.metadata[0].name
-            restart_policy                  = "OnFailure"
-            active_deadline_seconds         = 240
-            automount_service_account_token = "true"
+    })
+  ]
 
-            init_container {
-              name    = "fetch-ecr-token"
-              image   = "amazon/aws-cli:2.16.0"
-              command = ["/bin/sh", "-c"]
-              args = [
-                "TOKEN=$(aws ecr get-authorization-token --region us-east-1 --output text | cut -f2) && printf '{\"auths\":{\"https://${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.aws_region}.amazonaws.com\":{\"auth\":\"%s\"},\"${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.aws_region}.amazonaws.com\":{\"auth\":\"%s\"}}}' \"$TOKEN\" \"$TOKEN\" > /tmp/ecr-config/dockerconfig.json && echo ROTATE_OK"
-              ]
-              volume_mount {
-                name       = "ecr-config"
-                mount_path = "/tmp/ecr-config"
-              }
-            }
+  depends_on = [
+    module.eks,
+    kubernetes_namespace.kyverno
+  ]
+}
 
-            container {
-              name    = "push-ecr-secret"
-              image   = "bitnamilegacy/kubectl:1.31.4"
-              command = ["/bin/sh", "-c"]
-              args = [
-                "TOKEN=$(base64 -w0 /tmp/ecr-config/dockerconfig.json) && kubectl -n kyverno create secret docker-registry kyverno-ecr-registry --dry-run=client --from-file=.dockerconfigjson=/tmp/ecr-config/dockerconfig.json -o yaml | kubectl apply -f -"
-              ]
-              volume_mount {
-                name       = "ecr-config"
-                mount_path = "/tmp/ecr-config"
-              }
-            }
+resource "kubernetes_annotations" "external_secrets_sa" {
+  api_version = "v1"
+  kind        = "ServiceAccount"
 
-            volume {
-              name = "ecr-config"
-              empty_dir {}
-            }
+  metadata {
+    name      = "external-secrets"
+    namespace = "external-secrets"
+  }
+  annotations = {
+    "eks.amazonaws.com/role-arn" = aws_iam_role.kyverno_ecr.arn
+  }
+
+  force = true
+}
+
+# SA for the ECR generator's jwt auth (looked up in the generator's namespace)
+resource "kubectl_manifest" "kyverno_ecr_sa" {
+  yaml_body = yamlencode({
+    apiVersion = "v1"
+    kind       = "ServiceAccount"
+    metadata = {
+      name      = "external-secrets"
+      namespace = kubernetes_namespace.kyverno.metadata[0].name
+      annotations = {
+        "eks.amazonaws.com/role-arn" = aws_iam_role.kyverno_ecr.arn
+      }
+    }
+  })
+
+  depends_on = [helm_release.external_secrets]
+}
+
+# ECRAuthorizationToken generator (free token, 12h expiry)
+resource "kubectl_manifest" "ecr_auth_token_generator" {
+  yaml_body = yamlencode({
+    apiVersion = "generators.external-secrets.io/v1alpha1"
+    kind       = "ECRAuthorizationToken"
+    metadata = {
+      name      = "kyverno-ecr-token"
+      namespace = "kyverno"
+    }
+    spec = {
+      region = var.aws_region
+      # jwt: SA resolved in the generator's own namespace (kyverno), IRSA -> kyverno-ecr role
+      auth = {
+        jwt = {
+          serviceAccountRef = {
+            name = "external-secrets"
           }
         }
       }
     }
-  }
+  })
+
+  depends_on = [helm_release.external_secrets]
+}
+
+# ExternalSecret -> kubernetes.io/dockerconfigjson Secret for Kyverno
+resource "kubectl_manifest" "kyverno_ecr_registry_secret" {
+  yaml_body = yamlencode({
+    apiVersion = "external-secrets.io/v1"
+    kind       = "ExternalSecret"
+    metadata = {
+      name      = "kyverno-ecr-registry"
+      namespace = kubernetes_namespace.kyverno.metadata[0].name
+    }
+    spec = {
+      refreshInterval = "1h"
+      target = {
+        name       = "kyverno-ecr-registry"
+        secretType = "kubernetes.io/dockerconfigjson"
+        template = {
+          type = "kubernetes.io/dockerconfigjson"
+          data = {
+            ".dockerconfigjson" = <<-EOT
+              {"auths":{"{{ .proxy_endpoint }}":{"username":"{{ .username }}","password":"{{ .password }}","auth":"{{ printf "%s:%s" .username .password | b64enc }}"}}}
+            EOT
+          }
+        }
+      }
+      dataFrom = [
+        {
+          sourceRef = {
+            generatorRef = {
+              apiVersion = "generators.external-secrets.io/v1alpha1"
+              kind       = "ECRAuthorizationToken"
+              name       = "kyverno-ecr-token"
+            }
+          }
+        }
+      ]
+    }
+  })
+
+  depends_on = [helm_release.external_secrets]
 }

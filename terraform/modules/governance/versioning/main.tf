@@ -44,7 +44,7 @@ resource "kubectl_manifest" "require_model_metadata" {
       matchConditions = [
         {
           name       = "is-ml-model"
-          expression = "has(object.metadata.labels) && object.metadata.labels['app.kubernetes.io/component'] == 'ml-model'"
+          expression = "'app.kubernetes.io/component' in object.metadata.?labels.orValue({}) && object.metadata.labels['app.kubernetes.io/component'] == 'ml-model'"
         }
       ]
       validations = [
