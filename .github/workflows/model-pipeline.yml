@@ -375,6 +375,7 @@ jobs:
 
       - name: Commit manifest (GitOps)
         run: |
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main-${{ github.sha }}-${{ github.run_id }}"
           if git diff --quiet -- k8s/deployment.yaml; then
             echo "No manifest change; skipping commit"
             exit 0
