@@ -11,14 +11,13 @@ on:
 # NOT re-trigger the pipeline (otherwise deploy -> push -> rebuild loops).
 # Jobs below re-check startsWith(github.event.head_commit.message, 'deploy:').
 env:
-  TRIGGERED_BY_BOT: ${{ startsWith(github.event.head_commit.message ?? '', 'deploy:') }}
   REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
   IMAGE_NAME: model-supply-chain-staging/model-server
 
 jobs:
   train-and-attest:
     name: Train Model with Provenance
-    if: !fromJSON(env.TRIGGERED_BY_BOT)
+    if: ${{ github.event_name != 'push' || !startsWith(github.event.head_commit.message, 'deploy:') }}
     runs-on: ubuntu-latest
     permissions:
       id-token: write  # For cosign keyless signing
@@ -180,7 +179,7 @@ jobs:
   build-container:
     name: Build and Sign Container
     needs: policy-gate
-    if: !fromJSON(env.TRIGGERED_BY_BOT)
+    if: ${{ github.event_name != 'push' || !startsWith(github.event.head_commit.message, 'deploy:') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -316,7 +315,7 @@ jobs:
     name: Deploy to Staging (EKS)
     needs: build-container
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && !fromJSON(env.TRIGGERED_BY_BOT)
+    if: ${{ github.ref == 'refs/heads/main' && (github.event_name != 'push' || !startsWith(github.event.head_commit.message, 'deploy:')) }}
     environment: staging
     permissions:
       id-token: write
