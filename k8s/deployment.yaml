@@ -52,7 +52,7 @@ spec:
       
       containers:
       - name: model-server
-        image: ghcr.io/yourusername/model-server:latest
+        image: 050083686295.dkr.ecr.us-east-1.amazonaws.com/model-supply-chain-staging/model-server:main-f76fdbbbd384cb21e136efa0920d0d5e0e853797-31267148021
         imagePullPolicy: Always
         
         securityContext:
